@@ -1,0 +1,7 @@
+[package]
+edition = "2021"
+name = "tg-voice-relay"
+version = "0.1.0"
+
+[dependencies]
+teloxide = "0.12.2"
