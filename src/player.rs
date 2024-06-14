@@ -1,8 +1,11 @@
-use tokio::process::Command;
+use std::time::Duration;
+
+use tokio::{process::Command, time};
 
 pub async fn play_audio_file(
     path: &str,
     cmd_template: &str,
+    player_start_delay: u64,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     #[cfg(target_family = "unix")]
     let shell = "sh";
@@ -14,6 +17,8 @@ pub async fn play_audio_file(
     let arg = "/C";
 
     let cmd_line = &cmd_template.replace("%f", &path);
+
+    time::sleep(Duration::from_millis(player_start_delay)).await;
 
     let output = Command::new(shell).args([arg, cmd_line]).output().await?;
     if let Some(code) = output.status.code() {

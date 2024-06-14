@@ -44,6 +44,7 @@ pub async fn handle_message(
                             .to_str()
                             .ok_or("failed to construct voice file path")?,
                         &app_config.env.player_command,
+                        app_config.env.player_start_delay,
                     )
                     .await?;
                 }

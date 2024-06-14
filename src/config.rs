@@ -39,8 +39,14 @@ impl AppConfig {
 pub struct EnvConfig {
     pub bot_token: String,
     pub player_command: String,
+    #[serde(default = "default_player_start_delay")]
+    pub player_start_delay: u64,
     #[serde(default = "default_data_dir")]
     pub data_dir: String,
+}
+
+fn default_player_start_delay() -> u64 {
+    0
 }
 
 fn default_data_dir() -> String {
