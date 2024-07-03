@@ -37,12 +37,19 @@ impl AppConfig {
 
 #[derive(Deserialize, Debug)]
 pub struct EnvConfig {
+    pub ahm_host: String,
+    #[serde(default = "default_ahm_port")]
+    pub ahm_port: u16,
     pub bot_token: String,
     pub player_command: String,
     #[serde(default = "default_player_start_delay")]
     pub player_start_delay: u64,
     #[serde(default = "default_data_dir")]
     pub data_dir: String,
+}
+
+fn default_ahm_port() -> u16 {
+    51325
 }
 
 fn default_player_start_delay() -> u64 {

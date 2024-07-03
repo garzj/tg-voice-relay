@@ -1,3 +1,4 @@
+mod ahm;
 mod command;
 mod config;
 mod msg_handler;
