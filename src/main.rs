@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 mod ahm;
 mod command;
 mod config;
