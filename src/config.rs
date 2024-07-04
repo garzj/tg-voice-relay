@@ -17,6 +17,7 @@ fn ensure_dir(path: &PathBuf) -> std::io::Result<()> {
 pub struct AppConfig {
     pub env: EnvConfig,
     pub audio_dir: PathBuf,
+    pub db_file: PathBuf,
 }
 
 impl AppConfig {
@@ -24,13 +25,15 @@ impl AppConfig {
         let env = EnvConfig::from_dotenv()?;
         let data_dir = PathBuf::from(&env.data_dir);
         let audio_dir = data_dir.join("audios");
+        let db_file = data_dir.join("bot.db");
 
         ensure_dir(&data_dir)?;
         ensure_dir(&audio_dir)?;
 
         Ok(AppConfig {
-            audio_dir: audio_dir,
             env,
+            audio_dir,
+            db_file,
         })
     }
 }

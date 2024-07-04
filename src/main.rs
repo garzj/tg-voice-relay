@@ -3,6 +3,7 @@
 mod ahm;
 mod command;
 mod config;
+mod db;
 mod msg_handler;
 mod player;
 
@@ -28,13 +29,21 @@ async fn main() {
 
     let player = Player::new(&app_config);
 
+    let db = db::init(&app_config).await;
+
     Dispatcher::builder(
         bot,
         dptree::entry().branch(Update::filter_message().endpoint(handle_message)),
     )
-    .dependencies(dptree::deps![app_config, Arc::new(Mutex::new(player))])
+    .dependencies(dptree::deps![
+        app_config,
+        Arc::new(Mutex::new(player)),
+        db.clone()
+    ])
     .enable_ctrlc_handler()
     .build()
     .dispatch()
     .await;
+
+    db.close().await;
 }
