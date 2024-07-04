@@ -8,7 +8,9 @@ use std::{process::exit, sync::Arc};
 
 use config::AppConfig;
 use msg_handler::handle_message;
+use player::Player;
 use teloxide::prelude::*;
+use tokio::sync::Mutex;
 
 #[tokio::main]
 async fn main() {
@@ -22,11 +24,13 @@ async fn main() {
 
     let bot = Bot::new(&app_config.env.bot_token);
 
+    let player = Player::new(&app_config);
+
     Dispatcher::builder(
         bot,
         dptree::entry().branch(Update::filter_message().endpoint(handle_message)),
     )
-    .dependencies(dptree::deps![app_config])
+    .dependencies(dptree::deps![app_config, Arc::new(Mutex::new(player))])
     .enable_ctrlc_handler()
     .build()
     .dispatch()

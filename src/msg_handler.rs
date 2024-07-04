@@ -5,12 +5,13 @@ use teloxide::{
     types::{MediaKind, MessageKind},
     utils::command::BotCommands,
 };
-use tokio::fs::File;
+use tokio::{fs::File, sync::Mutex};
 
-use crate::{command::Command, config::AppConfig, player::play_audio_file};
+use crate::{command::Command, config::AppConfig, player::Player};
 
 pub async fn handle_message(
     bot: Bot,
+    player: Arc<Mutex<Player>>,
     msg: Message,
     app_config: Arc<AppConfig>,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -39,14 +40,16 @@ pub async fn handle_message(
                     bot.download_file(&file.path, &mut dst).await?;
                     dst.sync_all().await?;
 
-                    play_audio_file(
-                        &dst_path
-                            .to_str()
-                            .ok_or("failed to construct voice file path")?,
-                        &app_config.env.player_command,
-                        app_config.env.player_start_delay,
-                    )
-                    .await?;
+                    let audio_path = dst_path
+                        .to_str()
+                        .ok_or("failed to construct voice file path")?;
+
+                    // todo: handle err
+                    let player = player.try_lock()?;
+
+                    // player.set_channel(0).await?;
+
+                    player.play_audio_file(audio_path).await?;
                 }
                 _ => {
                     bot.send_message(msg.chat.id, "Send me a voice message or use /help.")
