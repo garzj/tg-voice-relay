@@ -3,7 +3,6 @@ use std::io;
 use tokio::{io::AsyncWriteExt, net::TcpStream};
 
 pub struct AHMConnection {
-    address: String,
     stream: TcpStream,
 }
 
@@ -13,7 +12,7 @@ impl AHMConnection {
 
         let stream = TcpStream::connect(&address).await?;
 
-        Ok(AHMConnection { address, stream })
+        Ok(AHMConnection { stream })
     }
 
     pub async fn write_preset(&mut self, preset: u16) -> io::Result<()> {
