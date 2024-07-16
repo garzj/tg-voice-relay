@@ -44,6 +44,7 @@ pub struct EnvConfig {
     #[serde(default = "default_ahm_port")]
     pub ahm_port: u16,
     pub bot_token: String,
+    pub admin_users: Vec<i64>,
     pub player_command: String,
     #[serde(default = "default_player_start_delay")]
     pub player_start_delay: u64,

@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 mod ahm;
+mod auth_handler;
 mod command;
 mod config;
 mod db;
@@ -9,6 +10,7 @@ mod player;
 
 use std::{process::exit, sync::Arc};
 
+use auth_handler::make_auth_handler;
 use config::AppConfig;
 use msg_handler::handle_message;
 use player::Player;
@@ -33,7 +35,9 @@ async fn main() {
 
     Dispatcher::builder(
         bot,
-        dptree::entry().branch(Update::filter_message().endpoint(handle_message)),
+        dptree::entry()
+            .branch(make_auth_handler())
+            .branch(Update::filter_message().endpoint(handle_message)),
     )
     .dependencies(dptree::deps![
         Arc::new(app_config),
