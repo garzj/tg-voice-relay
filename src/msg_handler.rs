@@ -1,68 +1,71 @@
-use std::{error::Error, sync::Arc};
+use itertools::Itertools;
+use sqlx::{Pool, Sqlite};
+use std::error::Error;
 use teloxide::{
-    net::Download,
+    dispatching::DpHandlerDescription,
     prelude::*,
-    types::{MediaKind, MessageKind},
-    utils::command::BotCommands,
+    types::{InlineKeyboardButton, InlineKeyboardMarkup, MediaKind, MessageKind},
 };
-use tokio::{fs::File, sync::Mutex};
 
-use crate::{command::Command, config::AppConfig, player::Player};
+use crate::{
+    callback_handler::CallbackType,
+    command::Command,
+    dialogues::{self},
+};
 
-pub async fn handle_message(
+async fn msg_endpoint(
     bot: Bot,
-    player: Arc<Mutex<Player>>,
+    db: Pool<Sqlite>,
     msg: Message,
-    app_config: Arc<AppConfig>,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let chat_id = msg.chat.id.0;
+    match &msg.kind {
+        MessageKind::Common(common_msg) => match &common_msg.media_kind {
+            MediaKind::Voice(voice) => {
+                let file_id = &voice.voice.file.id;
 
-    // telegram uses negative numbers for groups' `chat_id`
-    if chat_id < 0 {
-        return Ok(());
-    }
+                let rooms = sqlx::query!("SELECT * FROM rooms").fetch_all(&db).await?;
+                let keyboard: Vec<Vec<InlineKeyboardButton>> = rooms
+                    .chunks(3)
+                    .map(|row| {
+                        row.iter()
+                            .map(|room| -> serde_json::Result<InlineKeyboardButton> {
+                                Ok(InlineKeyboardButton::callback(
+                                    &room.name,
+                                    serde_json::to_string(&CallbackType::PlayAudio {
+                                        room_name: room.name.to_owned(),
+                                        voice_file_id: file_id.to_owned(),
+                                    })?,
+                                ))
+                            })
+                            .try_collect()
+                    })
+                    .try_collect()?;
 
-    let response = String::from("");
-    if let Some(cmd) = msg.text().and_then(|text| Command::parse(text, "").ok()) {
-        cmd.execute(&bot, &msg).await?;
-    } else {
-        match &msg.kind {
-            MessageKind::Common(common_msg) => match &common_msg.media_kind {
-                MediaKind::Voice(voice) => {
-                    let file = bot.get_file(&voice.voice.file.id).await?;
-                    let name = file
-                        .path
-                        .split("/")
-                        .last()
-                        .ok_or("failed to get voice file name")?;
-                    let dst_path = app_config.audio_dir.join(name);
-                    let mut dst = File::create(&dst_path).await?;
-                    bot.download_file(&file.path, &mut dst).await?;
-                    dst.sync_all().await?;
-
-                    let audio_path = dst_path
-                        .to_str()
-                        .ok_or("failed to construct voice file path")?;
-
-                    // todo: handle err
-                    let player = player.try_lock()?;
-
-                    // player.set_channel(0).await?;
-
-                    player.play_audio_file(audio_path).await?;
-                }
-                _ => {
-                    bot.send_message(msg.chat.id, "Send me a voice message or use /help.")
-                        .await?;
-                }
-            },
-            _ => {}
-        }
-    }
-
-    if !response.is_empty() {
-        bot.send_message(msg.chat.id, response).await?;
+                bot.send_message(msg.chat.id, "Where should I play this?")
+                    .reply_markup(InlineKeyboardMarkup::new(keyboard))
+                    .await?;
+            }
+            _ => {
+                bot.send_message(msg.chat.id, "Send me a voice message or use /help.")
+                    .await?;
+            }
+        },
+        _ => {}
     }
 
     Ok(())
+}
+
+pub fn make_msg_handler(
+) -> Handler<'static, DependencyMap, Result<(), Box<dyn Error + Send + Sync>>, DpHandlerDescription>
+{
+    Update::filter_message()
+        .filter(|msg: Message| {
+            // telegram uses negative numbers for groups' `chat_id`
+            msg.chat.id.0 >= 0
+        })
+        .chain(dialogues::set_room::make_inject_handler())
+        .branch(Command::make_handler())
+        .branch(dialogues::set_room::make_endpoint_handler())
+        .branch(dptree::endpoint(msg_endpoint))
 }

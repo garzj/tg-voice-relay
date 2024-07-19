@@ -6,11 +6,13 @@ version = "0.1.0"
 [dependencies]
 dotenvy = {version = "0.15.7", optional = true}
 envy = "0.4.2"
+itertools = "0.13.0"
 log = "0.4"
 pretty_env_logger = "0.4"
 rodio = "0.18.1"
 serde = {version = "1.0.203", features = ["derive"]}
-sqlx = { version = "0.7.4", features = ["runtime-tokio", "sqlite"] }
+serde_json = "1.0.120"
+sqlx = {version = "0.7.4", features = ["runtime-tokio", "sqlite"]}
 symphonia = "0.5.4"
 teloxide = {version = "0.12", features = ["macros"]}
 tokio = {version = "1.8", features = ["rt-multi-thread", "macros", "process"]}

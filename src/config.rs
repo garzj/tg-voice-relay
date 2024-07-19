@@ -36,6 +36,10 @@ impl AppConfig {
             db_file,
         })
     }
+
+    pub fn is_admin(&self, id: &i64) -> bool {
+        self.env.admin_users.contains(id)
+    }
 }
 
 #[derive(Deserialize, Debug)]
