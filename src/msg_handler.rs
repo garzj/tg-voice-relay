@@ -60,10 +60,7 @@ pub fn make_msg_handler(
 ) -> Handler<'static, DependencyMap, Result<(), Box<dyn Error + Send + Sync>>, DpHandlerDescription>
 {
     Update::filter_message()
-        .filter(|msg: Message| {
-            // telegram uses negative numbers for groups' `chat_id`
-            msg.chat.id.0 >= 0
-        })
+        .filter(|msg: Message| msg.chat.id.is_user())
         .chain(dialogues::set_room::make_inject_handler())
         .branch(Command::make_handler())
         .branch(dialogues::set_room::make_endpoint_handler())
