@@ -36,11 +36,13 @@ pub fn make_auth_handler(
         match update.kind {
             UpdateKind::Message(msg) => match msg.kind {
                 MessageKind::Common(_) => {
-                    bot.send_message(
-                        msg.chat.id,
-                        "Unauthorized. Please ask an admin to invite you to the group.",
-                    )
-                    .await?;
+                    if msg.chat.id.is_user() {
+                        bot.send_message(
+                            msg.chat.id,
+                            "Unauthorized. Please ask an admin to invite you to the group.",
+                        )
+                        .await?;
+                    }
                     Ok(())
                 }
                 _ => Ok(()),
