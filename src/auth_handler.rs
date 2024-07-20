@@ -1,11 +1,11 @@
 use std::{error::Error, sync::Arc};
 
 use teloxide::{
-    dispatching::{DpHandlerDescription, UpdateFilterExt},
+    dispatching::DpHandlerDescription,
     dptree::{self, Endpoint},
     prelude::DependencyMap,
     requests::Requester,
-    types::{Message, Update},
+    types::{MessageKind, Update, UpdateKind},
     Bot,
 };
 
@@ -32,15 +32,20 @@ pub fn make_auth_handler(
             true
         },
     )
-    .branch(
-        Update::filter_message().endpoint(|bot: Bot, msg: Message| async move {
-            bot.send_message(
-                msg.chat.id,
-                "Unauthorized. Please ask an admin to invite you to the group.",
-            )
-            .await?;
-            Ok(())
-        }),
-    )
-    .endpoint(|| async { Ok(()) })
+    .endpoint(|bot: Bot, update: Update| async move {
+        match update.kind {
+            UpdateKind::Message(msg) => match msg.kind {
+                MessageKind::Common(_) => {
+                    bot.send_message(
+                        msg.chat.id,
+                        "Unauthorized. Please ask an admin to invite you to the group.",
+                    )
+                    .await?;
+                    Ok(())
+                }
+                _ => Ok(()),
+            },
+            _ => Ok(()),
+        }
+    })
 }
