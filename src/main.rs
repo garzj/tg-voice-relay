@@ -8,6 +8,7 @@ mod config;
 mod db;
 mod dialogues;
 mod msg_handler;
+mod my_chat_member_handler;
 mod player;
 
 use std::{process::exit, sync::Arc};
@@ -16,6 +17,7 @@ use auth_handler::make_auth_handler;
 use callback_handler::make_callback_handler;
 use config::AppConfig;
 use msg_handler::make_msg_handler;
+use my_chat_member_handler::make_my_chat_member_handler;
 use player::Player;
 use teloxide::prelude::*;
 use tokio::sync::Mutex;
@@ -39,6 +41,7 @@ async fn main() {
     Dispatcher::builder(
         bot,
         dptree::entry()
+            .branch(make_my_chat_member_handler())
             .branch(make_auth_handler())
             .branch(make_msg_handler())
             .branch(make_callback_handler()),

@@ -14,6 +14,9 @@ CREATE TABLE IF NOT EXISTS rooms (
     name VARCHAR(20) NOT NULL PRIMARY KEY,
     preset INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS auth_groups (
+    id INTEGER NOT NULL PRIMARY KEY
+);
         "
     )
     .execute(db)

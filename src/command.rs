@@ -5,7 +5,10 @@ use sqlx::{Pool, Sqlite};
 use teloxide::{
     dispatching::DpHandlerDescription,
     prelude::*,
-    types::{InlineKeyboardButton, InlineKeyboardMarkup},
+    types::{
+        ButtonRequest, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton,
+        KeyboardButtonRequestChat, KeyboardMarkup,
+    },
     utils::command::BotCommands,
 };
 
@@ -37,6 +40,8 @@ pub enum Command {
     RoomSet,
     #[command(description = "delete a room")]
     RoomDel,
+    #[command(description = "link a group of authorized users")]
+    GroupLink,
 }
 
 impl Command {
@@ -131,6 +136,26 @@ impl Command {
                     .try_collect()?;
                 bot.send_message(msg.chat.id, "Select a room to delete.")
                     .reply_markup(InlineKeyboardMarkup::new(keyboard))
+                    .await?;
+            }
+            Command::GroupLink => {
+                if !app_config.is_admin(&msg.chat.id.0) {
+                    bot.send_message(msg.chat.id, "Insufficient permission.")
+                        .await?;
+                    return Ok(());
+                }
+
+                let button = KeyboardButton::new("Choose a group to authorize users").request(
+                    ButtonRequest::RequestChat(
+                        KeyboardButtonRequestChat::new(0, false).bot_is_member(true),
+                    ),
+                );
+                bot.send_message(msg.chat.id, "Please pick a group")
+                    .reply_markup(
+                        KeyboardMarkup::new([[button]])
+                            .one_time_keyboard()
+                            .resize_keyboard(),
+                    )
                     .await?;
             }
         };
