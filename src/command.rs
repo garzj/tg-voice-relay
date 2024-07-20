@@ -23,7 +23,7 @@ use crate::{callback_handler::CallbackType, config::AppConfig, dialogues};
 Additionally these commands may be used:"
 )]
 pub enum Command {
-    #[command(description = "hide")]
+    #[command(description = "off")]
     Start,
     #[command(description = "show this list")]
     Help,
