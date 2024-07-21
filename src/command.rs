@@ -32,19 +32,19 @@ Additionally these commands may be used:"
 pub enum Command {
     #[command(hide)]
     Start,
-    #[command(description = "show this list")]
+    /// show this list
     Help,
-    #[command(description = "play the mentioned audio message")]
+    /// play the mentioned audio message
     Play,
-    #[command(description = "stop the currently playing audio")]
+    /// stop the currently playing audio
     Stop,
-    #[command(description = "list all rooms")]
+    /// list all rooms
     Rooms,
-    #[command(description = "link a room to a preset")]
+    /// link a room to a preset
     RoomSet,
-    #[command(description = "delete a room")]
+    /// delete a room
     RoomDel,
-    #[command(description = "link a group of authorized users")]
+    /// link a group of authorized users
     GroupLink,
 }
 
