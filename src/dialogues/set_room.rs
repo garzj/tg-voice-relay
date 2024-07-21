@@ -1,8 +1,12 @@
-use std::{error::Error, sync::Arc};
+use std::{error::Error, process::exit, sync::Arc};
 
+use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Sqlite};
 use teloxide::{
-    dispatching::{dialogue::InMemStorage, DpHandlerDescription, HandlerExt},
+    dispatching::{
+        dialogue::{serializer::Json, ErasedStorage, SqliteStorage, Storage},
+        DpHandlerDescription, HandlerExt,
+    },
     dptree::{self, Handler},
     prelude::{DependencyMap, Dialogue},
     requests::Requester,
@@ -12,7 +16,7 @@ use teloxide::{
 
 use crate::config::AppConfig;
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Serialize, Deserialize)]
 pub enum State {
     #[default]
     Inactive,
@@ -22,16 +26,27 @@ pub enum State {
     },
 }
 
-pub type DialogueDependency = Dialogue<State, InMemStorage<State>>;
+type MyStorage = std::sync::Arc<ErasedStorage<State>>;
 
-pub fn make_inject_handler(
+pub type DialogueDependency = Dialogue<State, ErasedStorage<State>>;
+
+pub async fn make_inject_handler(
+    app_config: &AppConfig,
 ) -> Handler<'static, DependencyMap, Result<(), Box<dyn Error + Send + Sync>>, DpHandlerDescription>
 {
-    dptree::map({
-        let storage = InMemStorage::<State>::new();
-        move || storage.clone()
-    })
-    .enter_dialogue::<Message, InMemStorage<State>, State>() // todo: change to sqlite storage
+    let db_file = &app_config.db_file.to_str().unwrap_or_else(|| {
+        log::error!("invalid db file path: {:?}", app_config.db_file);
+        exit(1)
+    });
+    let storage: MyStorage = SqliteStorage::open(db_file, Json)
+        .await
+        .unwrap_or_else(|e| {
+            log::error!("db connection for storage failed: {}", e);
+            exit(1)
+        })
+        .erase();
+
+    dptree::map(move || storage.clone()).enter_dialogue::<Message, ErasedStorage<State>, State>()
 }
 
 pub fn make_endpoint_handler(

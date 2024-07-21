@@ -49,7 +49,7 @@ async fn main() {
         dptree::entry()
             .branch(make_my_chat_member_handler())
             .branch(make_auth_handler())
-            .branch(make_msg_handler())
+            .branch(make_msg_handler(&app_config).await)
             .branch(make_callback_handler()),
     )
     .dependencies(dptree::deps![

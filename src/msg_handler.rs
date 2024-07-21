@@ -92,12 +92,13 @@ async fn msg_endpoint(
     Ok(())
 }
 
-pub fn make_msg_handler(
+pub async fn make_msg_handler(
+    app_config: &AppConfig,
 ) -> Handler<'static, DependencyMap, Result<(), Box<dyn Error + Send + Sync>>, DpHandlerDescription>
 {
     Update::filter_message()
         .filter(|msg: Message| msg.chat.id.is_user())
-        .chain(dialogues::set_room::make_inject_handler())
+        .chain(dialogues::set_room::make_inject_handler(app_config).await)
         .branch(Command::make_handler())
         .branch(dialogues::set_room::make_endpoint_handler())
         .branch(dptree::endpoint(msg_endpoint))
