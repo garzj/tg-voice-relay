@@ -1,17 +1,16 @@
-use itertools::Itertools;
 use sqlx::{Pool, Sqlite};
 use std::{error::Error, sync::Arc};
 use teloxide::{
     dispatching::DpHandlerDescription,
     prelude::*,
-    types::{InlineKeyboardButton, InlineKeyboardMarkup, KeyboardRemove, MediaKind, MessageKind},
+    types::{KeyboardRemove, MediaKind, MessageKind},
 };
 
 use crate::{
-    callback_handler::CallbackType,
     command::Command,
     config::AppConfig,
     dialogues::{self},
+    handle_voice_message::handle_voice_message,
 };
 
 async fn msg_endpoint(
@@ -23,29 +22,7 @@ async fn msg_endpoint(
     match &msg.kind {
         MessageKind::Common(common_msg) => match &common_msg.media_kind {
             MediaKind::Voice(voice) => {
-                let file_id = &voice.voice.file.id;
-
-                let rooms = sqlx::query!("SELECT * FROM rooms").fetch_all(&db).await?;
-                let keyboard: Vec<Vec<InlineKeyboardButton>> = rooms
-                    .chunks(3)
-                    .map(|row| {
-                        row.iter()
-                            .map(|room| -> serde_json::Result<InlineKeyboardButton> {
-                                Ok(InlineKeyboardButton::callback(
-                                    &room.name,
-                                    serde_json::to_string(&CallbackType::PlayAudio {
-                                        room_name: room.name.to_owned(),
-                                        voice_file_id: file_id.to_owned(),
-                                    })?,
-                                ))
-                            })
-                            .try_collect()
-                    })
-                    .try_collect()?;
-
-                bot.send_message(msg.chat.id, "Where should I play this?")
-                    .reply_markup(InlineKeyboardMarkup::new(keyboard))
-                    .await?;
+                handle_voice_message(&bot, &db, msg.chat.id, &voice.voice.file.id).await?;
             }
             _ => {
                 bot.send_message(msg.chat.id, "Send me a voice message or use /help.")

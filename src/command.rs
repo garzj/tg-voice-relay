@@ -5,14 +5,17 @@ use sqlx::{Pool, Sqlite};
 use teloxide::{
     dispatching::DpHandlerDescription,
     prelude::*,
-    types::{
-        ButtonRequest, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton,
-        KeyboardButtonRequestChat, KeyboardMarkup,
-    },
+    types::{ButtonRequest, KeyboardButton, KeyboardButtonRequestChat, KeyboardMarkup},
     utils::command::BotCommands,
 };
 
-use crate::{callback_handler::CallbackType, config::AppConfig, dialogues};
+use crate::{
+    callback_handler::CallbackType,
+    config::AppConfig,
+    dialogues,
+    handle_voice_message::handle_voice_message,
+    inline_data_keyboard::{InlineDataKeyboard, InlineDataKeyboardButton},
+};
 
 #[derive(BotCommands, Clone)]
 #[command(
@@ -72,7 +75,19 @@ impl Command {
                     Some(reply_msg) => reply_msg,
                 };
 
-                todo!()
+                let voice = match reply_msg.voice() {
+                    Some(voice) => voice,
+                    None => {
+                        bot.send_message(
+                            msg.chat.id,
+                            "The mentioned message has to be a voice message or an audio file.",
+                        )
+                        .await?;
+                        return Ok(());
+                    }
+                };
+
+                handle_voice_message(&bot, &db, msg.chat.id, &voice.file.id).await?;
             }
             Command::Stop => {
                 todo!()
@@ -119,24 +134,27 @@ impl Command {
                     bot.send_message(msg.chat.id, "No rooms defined.").await?;
                     return Ok(());
                 }
-                let keyboard: Vec<Vec<InlineKeyboardButton>> = rooms
-                    .chunks(3)
-                    .map(|row| {
-                        row.iter()
-                            .map(|room| -> serde_json::Result<InlineKeyboardButton> {
-                                Ok(InlineKeyboardButton::callback(
-                                    &room.name,
-                                    serde_json::to_string(&CallbackType::RoomDel {
+
+                let keyboard = InlineDataKeyboard::new().buttons(
+                    rooms
+                        .into_iter()
+                        .map(|room| {
+                            serde_json::Result::<InlineDataKeyboardButton>::Ok(
+                                InlineDataKeyboardButton {
+                                    text: room.name.to_owned(),
+                                    data: serde_json::to_string(&CallbackType::RoomDel {
                                         name: room.name.to_owned(),
                                     })?,
-                                ))
-                            })
-                            .try_collect()
-                    })
-                    .try_collect()?;
-                bot.send_message(msg.chat.id, "Select a room to delete.")
-                    .reply_markup(InlineKeyboardMarkup::new(keyboard))
+                                },
+                            )
+                        })
+                        .try_collect()?,
+                );
+                let keyboard_msg = bot
+                    .send_message(msg.chat.id, "Select a room to delete.")
+                    .reply_markup(keyboard.build_inline_keyboard_markup())
                     .await?;
+                keyboard.insert_into_db(&db, &keyboard_msg.id).await?;
             }
             Command::GroupLink => {
                 if !app_config.is_admin(&msg.chat.id.0) {

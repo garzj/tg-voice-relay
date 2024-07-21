@@ -7,6 +7,8 @@ mod command;
 mod config;
 mod db;
 mod dialogues;
+mod handle_voice_message;
+mod inline_data_keyboard;
 mod msg_handler;
 mod my_chat_member_handler;
 mod player;
