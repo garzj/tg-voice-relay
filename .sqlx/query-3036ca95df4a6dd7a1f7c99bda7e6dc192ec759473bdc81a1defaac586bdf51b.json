@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO rooms VALUES($1, $2)\n                        ON CONFLICT(name) DO UPDATE SET preset=$2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "3036ca95df4a6dd7a1f7c99bda7e6dc192ec759473bdc81a1defaac586bdf51b"
+}

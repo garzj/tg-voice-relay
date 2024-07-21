@@ -1,35 +1,12 @@
 use std::process::exit;
 
 use sqlx::{
+    migrate,
     sqlite::{SqliteConnectOptions, SqlitePoolOptions},
     Pool, Sqlite,
 };
 
 use crate::config::AppConfig;
-
-async fn init_tables(db: &Pool<Sqlite>) -> sqlx::Result<()> {
-    sqlx::query!(
-        "
-CREATE TABLE IF NOT EXISTS rooms (
-    name VARCHAR(20) NOT NULL PRIMARY KEY,
-    preset INTEGER NOT NULL
-);
-CREATE TABLE IF NOT EXISTS auth_groups (
-    id INTEGER NOT NULL PRIMARY KEY
-);
-CREATE TABLE IF NOT EXISTS keyboard_buttons (
-    message_id INTEGER NOT NULL,
-    button_index INTEGER NOT NULL,
-    data TEXT NOT NULL,
-    PRIMARY KEY (message_id, button_index)
-);
-        "
-    )
-    .execute(db)
-    .await?;
-
-    Ok(())
-}
 
 pub async fn init(app_config: &AppConfig) -> Pool<Sqlite> {
     let db_file = &app_config.db_file.to_str().unwrap_or_else(|| {
@@ -48,9 +25,10 @@ pub async fn init(app_config: &AppConfig) -> Pool<Sqlite> {
             exit(1)
         });
 
-    init_tables(&db)
-        .await
-        .unwrap_or_else(|e| log::error!("failed to initialize database tables: {}", e));
+    migrate!("./migrations").run(&db).await.unwrap_or_else(|e| {
+        log::error!("failed to initialize database tables: {}", e);
+        exit(1);
+    });
 
     db
 }

@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT preset FROM rooms WHERE name = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "preset",
+        "ordinal": 0,
+        "type_info": "Int64"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "ceae46f267fbddd9d6fe7338751238ab76201dbc5d36e29268663a04bba37372"
+}
