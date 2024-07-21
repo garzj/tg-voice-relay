@@ -30,7 +30,7 @@ use crate::{
 Additionally these commands may be used:"
 )]
 pub enum Command {
-    #[command(description = "off")]
+    #[command(hide)]
     Start,
     #[command(description = "show this list")]
     Help,
