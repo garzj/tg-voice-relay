@@ -23,9 +23,14 @@ use my_chat_member_handler::make_my_chat_member_handler;
 use player::Player;
 use teloxide::prelude::*;
 
+const ENV_LOGGER_VAR: &str = "TG_VOICE_RELAY_LOG";
+
 #[tokio::main]
 async fn main() {
-    pretty_env_logger::init();
+    if std::env::var(ENV_LOGGER_VAR).is_err() {
+        std::env::set_var(ENV_LOGGER_VAR, "info");
+    }
+    pretty_env_logger::init_custom_env(ENV_LOGGER_VAR);
     log::info!("starting telegram voice relay bot.");
 
     let app_config = AppConfig::init().unwrap_or_else(|e| {
