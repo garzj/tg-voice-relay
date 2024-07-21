@@ -2,10 +2,7 @@ use std::{error::Error, sync::Arc};
 
 use sqlx::{Pool, Sqlite};
 use teloxide::{
-    dispatching::{
-        dialogue::{self, InMemStorage},
-        DpHandlerDescription, HandlerExt,
-    },
+    dispatching::{dialogue::InMemStorage, DpHandlerDescription, HandlerExt},
     dptree::{self, Handler},
     prelude::{DependencyMap, Dialogue},
     requests::Requester,
