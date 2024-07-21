@@ -1,4 +1,4 @@
-use std::{error::Error, sync::Arc, time::Duration};
+use std::{error::Error, sync::Arc};
 
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Sqlite};
@@ -179,8 +179,6 @@ async fn callback_endpoint(
                 .ok_or("failed to construct voice file path")?;
 
             player.play_audio_file(&audio_path).await?;
-
-            tokio::time::sleep(Duration::from_secs(3)).await;
 
             edit_query_message(format!("Played audio in: {}", room_name), None).await?;
             InlineDataKeyboard::remove_from_db(&db, &message.id).await?;
