@@ -53,6 +53,7 @@ async fn main() {
         Arc::new(Mutex::new(player)),
         db.clone()
     ])
+    .distribution_function(|_| None::<()>)
     .enable_ctrlc_handler()
     .build()
     .dispatch()
