@@ -15,6 +15,7 @@ use crate::{
     dialogues,
     handle_voice_message::handle_voice_message,
     inline_data_keyboard::{InlineDataKeyboard, InlineDataKeyboardButton},
+    player::Player,
 };
 
 #[derive(BotCommands, Clone)]
@@ -53,6 +54,7 @@ impl Command {
         app_config: Arc<AppConfig>,
         bot: Bot,
         db: Pool<Sqlite>,
+        player: Arc<Player>,
         msg: Message,
         set_room_dialogue: dialogues::set_room::DialogueDependency,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -89,9 +91,18 @@ impl Command {
 
                 handle_voice_message(&bot, &db, msg.chat.id, &voice.file.id).await?;
             }
-            Command::Stop => {
-                todo!()
-            }
+            Command::Stop => match player.stop_playing().await {
+                Err(err) => match err {
+                    crate::player::StopAudioError::AlreadyStopped => {
+                        bot.send_message(msg.chat.id, "No audio is being played at this time.")
+                            .await?;
+                    }
+                },
+                Ok(()) => {
+                    bot.send_message(msg.chat.id, "Stopped playing the current audio.")
+                        .await?;
+                }
+            },
             Command::Help => {
                 bot.send_message(msg.chat.id, Command::descriptions().to_string())
                     .await?;

@@ -22,7 +22,6 @@ use msg_handler::make_msg_handler;
 use my_chat_member_handler::make_my_chat_member_handler;
 use player::Player;
 use teloxide::prelude::*;
-use tokio::sync::Mutex;
 
 #[tokio::main]
 async fn main() {
@@ -50,7 +49,7 @@ async fn main() {
     )
     .dependencies(dptree::deps![
         Arc::new(app_config),
-        Arc::new(Mutex::new(player)),
+        Arc::new(player),
         db.clone()
     ])
     .distribution_function(|_| None::<()>)

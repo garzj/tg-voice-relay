@@ -12,7 +12,7 @@ use teloxide::{
     types::{CallbackQuery, InlineKeyboardMarkup, Update},
     Bot,
 };
-use tokio::{fs::File, sync::Mutex};
+use tokio::fs::File;
 
 use crate::{
     config::AppConfig,
@@ -38,7 +38,7 @@ async fn callback_endpoint(
     app_config: Arc<AppConfig>,
     bot: Bot,
     db: Pool<Sqlite>,
-    player: Arc<Mutex<Player>>,
+    player: Arc<Player>,
     q: CallbackQuery,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let message = match q.message {
@@ -122,9 +122,10 @@ async fn callback_endpoint(
             room_name,
             voice_file_id,
         } => {
-            let player = match player.try_lock() {
+            let player_lock = match player.try_lock() {
                 Err(_) => {
-                    edit_query_message("Another audio is being played.".into(), None).await?;
+                    edit_query_message("Another audio is already being played.".into(), None)
+                        .await?;
                     return Ok(());
                 }
                 Ok(player) => player,
@@ -178,13 +179,14 @@ async fn callback_endpoint(
                 .to_str()
                 .ok_or("failed to construct voice file path")?;
 
-            player.play_audio_file(&audio_path).await?;
+            player_lock.play_audio_file(&audio_path).await?;
 
             edit_query_message(format!("Played audio in: {}", room_name), None).await?;
             InlineDataKeyboard::remove_from_db(&db, &message.id).await?;
         }
-        CallbackType::StopAudio { id: _ } => {
-            todo!()
+        CallbackType::StopAudio { id: _id } => {
+            // todo: associate id with audio?
+            let _ = player.stop_playing().await;
         }
     }
 
