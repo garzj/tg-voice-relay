@@ -75,7 +75,7 @@ async fn msg_endpoint(
             bot.send_message(
                 msg.chat.id,
                 &format!(
-                    "Authorized all members of the group{}.",
+                    "Authorized all members of the group{}.\nRemove me from the group at anytime to revoke access.",
                     if let Some(title) = chat_details.title() {
                         format!(" \"{}\"", title)
                     } else {
