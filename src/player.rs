@@ -16,6 +16,8 @@ pub enum PlayAudioError {
     AlreadyPlaying,
     #[error("child process returned")]
     ChildProcessError(#[from] io::Error),
+    #[error("command parse error")]
+    CommandParseError,
 }
 
 #[derive(Error, Debug)]
@@ -77,7 +79,7 @@ impl Player {
 }
 
 impl<'a> PlayerLock<'a> {
-    pub async fn play_audio_file(self, path: &str) -> std::io::Result<()> {
+    pub async fn play_audio_file(self, path: &str) -> Result<(), PlayAudioError> {
         let (kill_tx, kill_rx) = oneshot::channel::<()>();
 
         {
@@ -89,25 +91,22 @@ impl<'a> PlayerLock<'a> {
             kill_tx_guard.replace(kill_tx);
         }
 
-        #[cfg(target_family = "unix")]
-        let shell = "sh";
-        #[cfg(target_family = "unix")]
-        let arg = "-c";
-        #[cfg(target_family = "windows")]
-        let shell = "cmd";
-        #[cfg(target_family = "windows")]
-        let arg = "/C";
+        // todo: store e in CommandParseError
+        let mut args = shell_words::split(&self.player.player_command)
+            .map_err(|_| PlayAudioError::CommandParseError)?
+            .into_iter();
+        let shell = args.next().ok_or(PlayAudioError::CommandParseError)?;
+        let args: Vec<String> = args
+            .map(|arg| if arg == "%f" { path.to_owned() } else { arg })
+            .collect();
 
-        let cmd_line = self.player.player_command.replace("%f", &path);
+        let all_args_iter = std::iter::once(shell.clone()).chain(args.iter().cloned());
+        let cmd_line = shell_words::join(all_args_iter);
 
         let proc = async {
             time::sleep(Duration::from_millis(self.player.player_start_delay)).await;
 
-            let proc = Command::new(shell)
-                .args([arg, &cmd_line])
-                .kill_on_drop(true)
-                .output();
-
+            let proc = Command::new(shell).args(args).kill_on_drop(true).output();
             proc.await
         };
 
