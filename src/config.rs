@@ -54,6 +54,9 @@ pub struct EnvConfig {
     pub player_start_delay: u64,
     #[serde(default = "default_data_dir")]
     pub data_dir: String,
+    pub heartbeat_endpoint: Option<String>,
+    #[serde(default = "default_heartbeat_interval")]
+    pub heartbeat_interval: u64,
 }
 
 fn default_ahm_port() -> u16 {
@@ -66,6 +69,10 @@ fn default_player_start_delay() -> u64 {
 
 fn default_data_dir() -> String {
     "./data".into()
+}
+
+fn default_heartbeat_interval() -> u64 {
+    300000
 }
 
 impl EnvConfig {
