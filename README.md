@@ -35,7 +35,7 @@ This GUID may also be visible somwhere in Windows Device Manager, one may double
 ## Build and run
 
 - `cargo build --release`, saves an executable into the `target/release` dir
-- run the executable with the `.env` in the same dir
+- run the executable having the `.env` in the working dir
 
 ## Development
 
