@@ -142,18 +142,22 @@ async fn callback_endpoint(
             .await?;
             stop_keyboard.insert_into_db(&db, &message.id).await?;
 
-            let preset = sqlx::query!("SELECT preset FROM rooms WHERE name = ?", room_name)
-                .fetch_one(&db)
-                .await?
-                .preset as u16;
-            if let Err(err) = player.set_channel(preset).await {
-                log::error!("failed to switch channels: {}", err);
-                edit_query_message(
-                    "Failed to switch channels, the mixer ain't responding :/ Please try this again later.".into(),
-                    None
-                )
-                .await?;
-                return Ok(());
+            if app_config.env.mock_ahm_connection {
+                log::warn!("Skipping preset config because MOCK_AHM_CONNECTION is enabled.");
+            } else {
+                let preset = sqlx::query!("SELECT preset FROM rooms WHERE name = ?", room_name)
+                    .fetch_one(&db)
+                    .await?
+                    .preset as u16;
+                if let Err(err) = player.set_channel(preset).await {
+                    log::error!("failed to switch channels: {}", err);
+                    edit_query_message(
+                        "Failed to switch channels, the mixer ain't responding :/ Please try this again later.".into(),
+                        None
+                    )
+                    .await?;
+                    return Ok(());
+                }
             }
 
             let file = bot.get_file(&voice_file_id).await?;

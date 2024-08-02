@@ -57,6 +57,8 @@ pub struct EnvConfig {
     pub heartbeat_endpoint: Option<String>,
     #[serde(default = "default_heartbeat_interval")]
     pub heartbeat_interval: u64,
+    #[serde(default = "default_mock_ahm_connection")]
+    pub mock_ahm_connection: bool,
 }
 
 fn default_ahm_port() -> u16 {
@@ -73,6 +75,10 @@ fn default_data_dir() -> String {
 
 fn default_heartbeat_interval() -> u64 {
     300000
+}
+
+fn default_mock_ahm_connection() -> bool {
+    false
 }
 
 impl EnvConfig {
