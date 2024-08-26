@@ -13,7 +13,7 @@ use crate::{
     callback_handler::CallbackType,
     config::AppConfig,
     dialogues,
-    handle_voice_message::handle_voice_message,
+    handle_replies::handle_replies,
     inline_data_keyboard::{InlineDataKeyboard, InlineDataKeyboardButton},
     player::Player,
 };
@@ -65,31 +65,7 @@ impl Command {
                 bot.send_message(msg.chat.id, "Hello there,\n\nSend me a voice message and I'll announce it for you!\n\nUse /help for more information.").await?;
             }
             Command::Play => {
-                let reply_msg = match msg.reply_to_message() {
-                    None => {
-                        bot.send_message(
-                            msg.chat.id,
-                            "This command may only be used in reply to an older voice message. Use /help for more information.",
-                        )
-                        .await?;
-                        return Ok(());
-                    }
-                    Some(reply_msg) => reply_msg,
-                };
-
-                let voice = match reply_msg.voice() {
-                    Some(voice) => voice,
-                    None => {
-                        bot.send_message(
-                            msg.chat.id,
-                            "The mentioned message has to be a voice message or an audio file.",
-                        )
-                        .await?;
-                        return Ok(());
-                    }
-                };
-
-                handle_voice_message(&bot, &db, msg.chat.id, &voice.file.id).await?;
+                handle_replies(&bot, &db, &msg).await?;
             }
             Command::Stop => match player.stop_playing().await {
                 Err(err) => match err {

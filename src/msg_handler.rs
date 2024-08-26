@@ -10,6 +10,7 @@ use crate::{
     command::Command,
     config::AppConfig,
     dialogues::{self},
+    handle_replies::handle_replies,
     handle_voice_message::handle_voice_message,
 };
 
@@ -92,6 +93,16 @@ async fn msg_endpoint(
     Ok(())
 }
 
+pub fn make_dot_reply_handler(
+) -> Handler<'static, DependencyMap, Result<(), Box<dyn Error + Send + Sync>>, DpHandlerDescription>
+{
+    dptree::entry()
+        .filter(|msg: Message| matches!(msg.text(), Some(".")))
+        .endpoint(|bot: Bot, db: Pool<Sqlite>, msg: Message| async move {
+            handle_replies(&bot, &db, &msg).await
+        })
+}
+
 pub async fn make_msg_handler(
     app_config: &AppConfig,
 ) -> Handler<'static, DependencyMap, Result<(), Box<dyn Error + Send + Sync>>, DpHandlerDescription>
@@ -99,6 +110,7 @@ pub async fn make_msg_handler(
     Update::filter_message()
         .filter(|msg: Message| msg.chat.id.is_user())
         .chain(dialogues::set_room::make_inject_handler(app_config).await)
+        .branch(make_dot_reply_handler())
         .branch(Command::make_handler())
         .branch(dialogues::set_room::make_endpoint_handler())
         .branch(dptree::endpoint(msg_endpoint))

@@ -8,6 +8,7 @@ mod command;
 mod config;
 mod db;
 mod dialogues;
+mod handle_replies;
 mod handle_voice_message;
 mod heartbeat;
 mod inline_data_keyboard;
