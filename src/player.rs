@@ -8,7 +8,7 @@ use tokio::{
     time,
 };
 
-use crate::{ahm::AHMConnection, config::AppConfig};
+use crate::{ahm::AHMConnection, config::EnvConfig};
 
 #[derive(Error, Debug)]
 pub enum PlayAudioError {
@@ -39,15 +39,33 @@ pub struct PlayerLock<'a> {
     guard: MutexGuard<'a, ()>,
 }
 
+pub struct PlayerConfig {
+    pub ahm_host: String,
+    pub ahm_port: u16,
+    pub player_start_delay: u64,
+    pub player_command: String,
+}
+
+impl From<&EnvConfig> for PlayerConfig {
+    fn from(env: &EnvConfig) -> Self {
+        PlayerConfig {
+            player_command: env.player_command.to_owned(),
+            player_start_delay: env.player_start_delay,
+            ahm_port: env.ahm_port,
+            ahm_host: env.ahm_host.to_owned(),
+        }
+    }
+}
+
 impl Player {
-    pub fn new(app_config: &AppConfig) -> Self {
-        let ahm_endpoint = format!("{}:{}", &app_config.env.ahm_host, &app_config.env.ahm_port);
+    pub fn new(player_config: &PlayerConfig) -> Self {
+        let ahm_endpoint = format!("{}:{}", player_config.ahm_host, player_config.ahm_port);
         Player {
             player_lock: Mutex::new(()),
             kill_tx: Mutex::new(None),
             ahm_endpoint,
-            player_start_delay: app_config.env.player_start_delay,
-            player_command: app_config.env.player_command.clone(),
+            player_start_delay: player_config.player_start_delay,
+            player_command: player_config.player_command.clone(),
         }
     }
 
@@ -80,6 +98,7 @@ impl Player {
 
 impl<'a> PlayerLock<'a> {
     pub async fn play_audio_file(self, path: &str) -> Result<(), PlayAudioError> {
+        log::info!("starting to play file: {}", path);
         let (kill_tx, kill_rx) = oneshot::channel::<()>();
 
         {
@@ -90,6 +109,7 @@ impl<'a> PlayerLock<'a> {
             }
             kill_tx_guard.replace(kill_tx);
         }
+        log::debug!("replaced player kill channel");
 
         // todo: store e in CommandParseError
         let mut args = shell_words::split(&self.player.player_command)
@@ -119,6 +139,10 @@ impl<'a> PlayerLock<'a> {
                 None
             }
         };
+        log::debug!("player done with file: {}", path);
+        self.player.kill_tx.lock().await.take();
+        log::debug!("player kill channel cleared");
+
         let Some(result) = finished else {
             return Ok(());
         };
@@ -140,10 +164,145 @@ impl<'a> PlayerLock<'a> {
             }
         }
 
-        self.player.kill_tx.lock().await.take();
-
         drop(self.guard);
-
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{future::Future, pin::Pin, sync::Arc, time::Instant};
+
+    use tokio::task::JoinSet;
+
+    use super::*;
+
+    fn make_player() -> Arc<Player> {
+        let config = PlayerConfig {
+            ahm_port: 51325,
+            ahm_host: "127.0.0.1".into(),
+            player_start_delay: 250,
+            player_command: "sh -c %f".into(),
+        };
+        Arc::new(Player::new(&config))
+    }
+
+    async fn join_all(futures: Vec<Pin<Box<dyn Future<Output = ()> + Send>>>) {
+        let mut set = JoinSet::new();
+        for future in futures {
+            set.spawn(future);
+        }
+        while let Some(res) = set.join_next().await {
+            res.expect("async task failed");
+        }
+    }
+
+    #[tokio::test]
+    async fn player_lock() {
+        let player = make_player();
+
+        let shell = "sleep 3";
+
+        let fut1 = Box::pin({
+            let player = player.clone();
+            async move {
+                let lock1 = player.try_lock().expect("lock 1 failed");
+                let start = Instant::now();
+                lock1
+                    .play_audio_file(&shell)
+                    .await
+                    .expect("lock 1 command failed");
+                assert!(
+                    start.elapsed().as_millis() >= 3000,
+                    "lock 1 command took to little"
+                );
+            }
+        });
+
+        let fut2 = Box::pin({
+            let player = player.clone();
+            async move {
+                tokio::time::sleep(Duration::from_secs(1)).await;
+
+                let lock2 = player.try_lock();
+                assert!(
+                    matches!(lock2, Err(PlayAudioError::AlreadyPlaying)),
+                    "locked a second time"
+                );
+
+                tokio::time::sleep(Duration::from_secs(3)).await;
+
+                let lock3 = player.try_lock().expect("still locked after play");
+                lock3
+                    .play_audio_file(&shell)
+                    .await
+                    .expect("lock 3 command failed");
+            }
+        });
+
+        join_all(vec![fut1, fut2]).await;
+    }
+
+    async fn player_kill(shell: &'static str) {
+        let player = make_player();
+
+        let fut1 = Box::pin({
+            let player = player.clone();
+
+            async move {
+                let lock1 = player.try_lock().expect("lock 1 failed");
+                lock1
+                    .play_audio_file(&shell)
+                    .await
+                    .expect("lock 1 command failed");
+            }
+        });
+
+        let fut2 = Box::pin({
+            let player = player.clone();
+
+            async move {
+                tokio::time::sleep(Duration::from_secs(1)).await;
+
+                let stop1 = Box::pin({
+                    let player = player.clone();
+                    async move {
+                        player.stop_playing().await.expect("stop 1 failed");
+                    }
+                });
+                let stop2 = Box::pin({
+                    let player = player.clone();
+                    async move {
+                        player
+                            .stop_playing()
+                            .await
+                            .expect_err("stop 2 should have failed");
+                    }
+                });
+                join_all(vec![stop1, stop2]).await;
+
+                tokio::time::sleep(Duration::from_secs(1)).await;
+
+                let lock2 = player.try_lock().expect("lock 2 failed");
+                lock2
+                    .play_audio_file(&shell)
+                    .await
+                    .expect("lock 2 command failed");
+            }
+        });
+
+        join_all(vec![fut1, fut2]).await;
+
+        player.try_lock().expect("lock 3 failed");
+    }
+
+    #[tokio::test]
+    async fn player_kill_no_output() {
+        player_kill("sleep 3").await;
+    }
+
+    #[tokio::test]
+    async fn player_kill_with_output() {
+        player_kill("echo testoutput && sleep 3 && exit 1").await;
     }
 }

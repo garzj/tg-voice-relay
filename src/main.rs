@@ -24,7 +24,7 @@ use config::AppConfig;
 use heartbeat::Heartbeat;
 use msg_handler::make_msg_handler;
 use my_chat_member_handler::make_my_chat_member_handler;
-use player::Player;
+use player::{Player, PlayerConfig};
 use teloxide::prelude::*;
 
 const ENV_LOGGER_VAR: &str = "TG_VOICE_RELAY_LOG";
@@ -52,7 +52,7 @@ async fn main() {
 
     let bot = Bot::new(&app_config.env.bot_token);
 
-    let player = Player::new(&app_config);
+    let player = Player::new(&PlayerConfig::from(&app_config.env));
 
     let db = db::init(&app_config).await;
 
