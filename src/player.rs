@@ -28,7 +28,7 @@ pub enum StopAudioError {
 
 pub struct Player {
     player_lock: Mutex<()>,
-    kill_tx: Mutex<Option<oneshot::Sender<()>>>,
+    kill_rx: Mutex<Option<oneshot::Receiver<()>>>,
     ahm_endpoint: String,
     player_start_delay: u64,
     player_command: String,
@@ -62,7 +62,7 @@ impl Player {
         let ahm_endpoint = format!("{}:{}", player_config.ahm_host, player_config.ahm_port);
         Player {
             player_lock: Mutex::new(()),
-            kill_tx: Mutex::new(None),
+            kill_rx: Mutex::new(None),
             ahm_endpoint,
             player_start_delay: player_config.player_start_delay,
             player_command: player_config.player_command.clone(),
@@ -87,11 +87,11 @@ impl Player {
     }
 
     pub async fn stop_playing(&self) -> Result<(), StopAudioError> {
-        let mut kill_tx = self.kill_tx.lock().await;
-        let _ = kill_tx
+        let mut kill_rx = self.kill_rx.lock().await;
+        let _ = kill_rx
             .take()
             .ok_or(StopAudioError::AlreadyStopped)?
-            .send(());
+            .close();
         Ok(())
     }
 }
@@ -99,15 +99,15 @@ impl Player {
 impl<'a> PlayerLock<'a> {
     pub async fn play_audio_file(self, path: &str) -> Result<(), PlayAudioError> {
         log::info!("starting to play file: {}", path);
-        let (kill_tx, kill_rx) = oneshot::channel::<()>();
+        let (mut kill_tx, kill_rx) = oneshot::channel::<()>();
 
         {
-            let mut kill_tx_guard = self.player.kill_tx.lock().await;
-            if let Some(old_kill_tx) = kill_tx_guard.take() {
+            let mut kill_rx_guard = self.player.kill_rx.lock().await;
+            if let Some(mut old_kill_rx) = kill_rx_guard.take() {
                 log::error!("the kill channel has already been initialized for this player, will kill and replace");
-                let _ = old_kill_tx.send(());
+                old_kill_rx.close();
             }
-            kill_tx_guard.replace(kill_tx);
+            kill_rx_guard.replace(kill_rx);
         }
         log::debug!("replaced player kill channel");
 
@@ -132,15 +132,12 @@ impl<'a> PlayerLock<'a> {
 
         let finished = select! {
             result = proc => Some(result),
-            result = kill_rx => {
-                if let Err(err) = result {
-                    log::error!("recv error for player's kill receiver: {}", err);
-                }
-                None
-            }
+            () = kill_tx.closed() => None
         };
         log::debug!("player done with file: {}", path);
-        self.player.kill_tx.lock().await.take();
+        if let Ok(mut kill_rx_guard) = self.player.kill_rx.try_lock() {
+            kill_rx_guard.take();
+        }
         log::debug!("player kill channel cleared");
 
         let Some(result) = finished else {
