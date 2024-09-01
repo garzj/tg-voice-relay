@@ -1,7 +1,11 @@
 use std::error::Error;
 
 use sqlx::{Pool, Sqlite};
-use teloxide::{prelude::Requester, types::Message, Bot};
+use teloxide::{
+    prelude::Requester,
+    types::{MediaKind, Message, MessageKind},
+    Bot,
+};
 
 use crate::handle_voice_message::handle_voice_message;
 
@@ -21,9 +25,20 @@ pub async fn handle_replies(
         Some(reply_msg) => reply_msg,
     };
 
-    let voice = match reply_msg.voice() {
-        Some(voice) => voice,
-        None => {
+    let file = match &reply_msg.kind {
+        MessageKind::Common(common_msg) => match &common_msg.media_kind {
+            MediaKind::Voice(voice) => &voice.voice.file,
+            MediaKind::Audio(audio) => &audio.audio.file,
+            _ => {
+                bot.send_message(
+                    msg.chat.id,
+                    "The mentioned message has to be a voice message or an audio file.",
+                )
+                .await?;
+                return Ok(());
+            }
+        },
+        _ => {
             bot.send_message(
                 msg.chat.id,
                 "The mentioned message has to be a voice message or an audio file.",
@@ -33,7 +48,7 @@ pub async fn handle_replies(
         }
     };
 
-    handle_voice_message(&bot, &db, msg.chat.id, &voice.file.id).await?;
+    handle_voice_message(&bot, &db, msg.chat.id, &file.id).await?;
 
     Ok(())
 }
