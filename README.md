@@ -15,22 +15,12 @@ PLAYER_COMMAND="ffplay -nodisp -autoexit %f"
 
 #### Play audio on speaker (Windows)
 
-- install ffmpeg: `winget install --id=Gyan.FFmpeg -e`
-
-First, get the id of the Speaker (using `powershell`):
-
-```powershell
-$AudioDeviceFilter="" # fill me in to filter output
-Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Enum\SWD\MMDEVAPI\*" | Where-Object {($_.FriendlyName -Match $AudioDeviceFilter) -and ($_.PSChildName -Match "0\.0\.0")} | Select-Object -Property FriendlyName,PSChildName
-```
-
-Copy the PSChildName from the output and use it like this:
-
-```
-PLAYER_COMMAND='"C:\Program Files\VideoLAN\VLC\vlc.exe" -I dummy --dummy-quiet --no-one-instance --mmdevice-audio-device {0.0.0.00000000}.{some-guid} --play-and-exit %f'
-```
-
-This GUID may also be visible somwhere in Windows Device Manager, one may double check that the device is correct.
+- install SoX for playing audios: `winget install --id=ChrisBagwell.SoX -e`
+- get the full name of the speaker (i. e. from Windows Device Manager)
+- use it like this:
+  ```
+  PLAYER_COMMAND='"C:\Program Files (x86)\sox-14-4-2\sox.exe" -q %f -t waveaudio "High Definition Audio Device"'
+  ```
 
 ## Build and run
 
