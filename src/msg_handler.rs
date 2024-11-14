@@ -28,6 +28,9 @@ async fn msg_endpoint(
             MediaKind::Audio(audio) => {
                 handle_voice_message(&bot, &db, msg.chat.id, &audio.audio.file.id).await?;
             }
+            MediaKind::Document(doc) => {
+                handle_voice_message(&bot, &db, msg.chat.id, &doc.document.file.id).await?;
+            }
             _ => {
                 bot.send_message(msg.chat.id, "Send me a voice message or use /help.")
                     .await?;
